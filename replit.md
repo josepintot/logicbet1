@@ -15,11 +15,16 @@ Logic Bet is a minimal, Apple-inspired sports betting dashboard that provides us
   
 ### Backend
 - **Authentication**: Replit Auth (OIDC) supporting Google, GitHub, email/password
-- **Database**: PostgreSQL with Drizzle ORM
+- **Database**: MySQL with Drizzle ORM
 - **API Endpoints**:
   - `/api/auth/user`: Get authenticated user information
   - `/api/games`: Get all games with betting odds
   - `/api/login`, `/api/logout`, `/api/callback`: Auth routes
+  
+### Pages
+- **Landing Page** (`/`): Home page for logged-out users
+- **Dashboard** (`/`): Main dashboard for authenticated users  
+- **Login Page** (`/login`): Standalone frontend-only login demo with name/password fields and forgot password popup
 
 ### Data Models
 - **Users**: User accounts (managed by Replit Auth)
@@ -29,9 +34,22 @@ Logic Bet is a minimal, Apple-inspired sports betting dashboard that provides us
 ## Tech Stack
 - **Frontend**: React, TypeScript, Tailwind CSS, Shadcn UI
 - **Backend**: Express.js, Node.js
-- **Database**: PostgreSQL (Neon)
+- **Database**: MySQL
 - **Authentication**: Replit Auth (OpenID Connect)
 - **ORM**: Drizzle
+- **Session Store**: express-mysql-session
+
+## Database Setup
+The application uses MySQL. See `MYSQL_INSTALLATION_GUIDE.md` for complete setup instructions.
+
+**Quick Setup:**
+1. Install MySQL locally (see guide)
+2. Create database: `CREATE DATABASE logicbet;`
+3. Create user and grant permissions
+4. Set `DATABASE_URL` in `.env` file
+5. Update `drizzle.config.ts` to use `dialect: "mysql"`
+6. Run `npm run db:push` to create tables
+7. Run `npx tsx server/seed.ts` to add sample data
 
 ## Design Philosophy
 Following Apple's design language:
