@@ -6,6 +6,7 @@ import {
   timestamp,
   varchar,
   int,
+  bigint,
   decimal,
   text,
 } from "drizzle-orm/mysql-core";
@@ -13,12 +14,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table - Required for Replit Auth
+// Note: express-mysql-session stores expire as UNIX timestamp in milliseconds
 export const sessions = mysqlTable(
   "sessions",
   {
     sid: varchar("sid", { length: 255 }).primaryKey(),
     sess: json("sess").$type<any>().notNull(),
-    expire: timestamp("expire").notNull(),
+    expire: bigint("expire", { mode: "number", unsigned: true }).notNull(),
   },
   (table) => ({
     expireIdx: index("IDX_session_expire").on(table.expire),
