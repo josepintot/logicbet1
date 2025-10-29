@@ -4,7 +4,7 @@ import logoImage from "@assets/generated_images/Logic_Bet_minimal_logo_14ce3d7c.
 
 export default function Landing() {
   const handleLogin = () => {
-    window.location.href = '/api/login';
+    window.location.href = '/login';
   };
 
   return (
