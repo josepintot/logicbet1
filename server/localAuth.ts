@@ -83,10 +83,17 @@ export async function setupAuth(app: Express) {
     res.json({ user: req.user });
   });
 
-  // Logout route
+  // Logout route (POST)
   app.post("/api/logout", (req, res) => {
     req.logout(() => {
       res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  // Logout route (GET) - for navigation
+  app.get("/api/logout", (req, res) => {
+    req.logout(() => {
+      res.redirect('/');
     });
   });
 
