@@ -13,7 +13,7 @@ export default function Landing() {
       <header className="w-full border-b border-border">
         <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logoImage} alt="Logic Bet" className="h-12 w-auto object-contain" data-testid="img-logo" />
+            <img src={logoImage} alt="Logic Bet" className="h-16 w-auto object-contain" data-testid="img-logo" />
           </div>
           <Button 
             onClick={handleLogin}
