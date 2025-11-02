@@ -1,15 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
-import type { User } from "@shared/schema";
+import { useState, useEffect } from "react";
 
 export function useAuth() {
-  const { data: user, isLoading } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if auth token exists in localStorage
+    const token = localStorage.getItem('authToken');
+    setIsAuthenticated(!!token);
+    setIsLoading(false);
+  }, []);
 
   return {
-    user,
+    isAuthenticated,
     isLoading,
-    isAuthenticated: !!user,
   };
 }

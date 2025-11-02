@@ -3,42 +3,58 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@assets/generated_images/Logic_Bet_minimal_logo_14ce3d7c.png";
 
+const API_URL = "https://sports-admin-server.jbets.online";
+
 export default function Login() {
-  const [name, setName] = useState("");
+  const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // This is frontend only - no backend integration
-    toast({
-      title: "Login Attempted",
-      description: `Name: ${name} (Frontend only - no backend)`,
-    });
-  };
+    setIsLoading(true);
 
-  const handleForgotPassword = () => {
-    // This is frontend only - no backend integration
-    toast({
-      title: "Password Reset Requested",
-      description: `Reset link would be sent to: ${forgotEmail} (Frontend only)`,
-    });
-    setForgotEmail("");
-    setForgotDialogOpen(false);
+    try {
+      const response = await fetch(`${API_URL}/v1/user/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userName,
+          password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store the auth token
+        if (data.token) {
+          localStorage.setItem('authToken', data.token);
+        }
+        // Redirect to dashboard
+        window.location.href = '/';
+      } else {
+        toast({
+          title: "Login failed",
+          description: data.message || "Invalid credentials",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not connect to server",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,74 +82,20 @@ export default function Login() {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" data-testid="label-name">Name</Label>
+                <Label htmlFor="userName" data-testid="label-username">Username</Label>
                 <Input
-                  id="name"
+                  id="userName"
                   type="text"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your username"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
                   required
-                  data-testid="input-name"
+                  disabled={isLoading}
+                  data-testid="input-username"
                 />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" data-testid="label-password">Password</Label>
-                  <Dialog open={forgotDialogOpen} onOpenChange={setForgotDialogOpen}>
-                    <DialogTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-forgot-password"
-                      >
-                        Forgot password?
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md" data-testid="dialog-forgot-password">
-                      <DialogHeader>
-                        <DialogTitle data-testid="heading-forgot-password">Reset Password</DialogTitle>
-                        <DialogDescription data-testid="text-forgot-description">
-                          Enter your email address and we'll send you a link to reset your password.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="forgot-email" data-testid="label-forgot-email">Email</Label>
-                          <Input
-                            id="forgot-email"
-                            type="email"
-                            placeholder="name@example.com"
-                            value={forgotEmail}
-                            onChange={(e) => setForgotEmail(e.target.value)}
-                            data-testid="input-forgot-email"
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setForgotEmail("");
-                            setForgotDialogOpen(false);
-                          }}
-                          data-testid="button-forgot-cancel"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={handleForgotPassword}
-                          disabled={!forgotEmail}
-                          data-testid="button-forgot-submit"
-                        >
-                          Send Reset Link
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <Label htmlFor="password" data-testid="label-password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -141,23 +103,19 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading}
                   data-testid="input-password"
                 />
               </div>
               <Button
                 type="submit"
                 className="w-full"
+                disabled={isLoading}
                 data-testid="button-login-submit"
               >
-                Sign In
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
-
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              <p data-testid="text-frontend-note">
-                Note: This is a frontend-only login page (no backend integration)
-              </p>
-            </div>
           </CardContent>
         </Card>
       </main>
