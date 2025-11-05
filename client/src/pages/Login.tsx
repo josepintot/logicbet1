@@ -35,7 +35,13 @@ export default function Login() {
       const data = await response.json();
       console.log('Login response:', { status: response.status, data });
 
-      if (response.ok && data.token) {
+      if (data.error) {
+        toast({
+          title: "Login failed",
+          description: data.error,
+          variant: "destructive"
+        });
+      } else if (data.token) {
         localStorage.setItem('authToken', data.token);
         setTimeout(() => {
           window.location.href = '/';
@@ -43,7 +49,7 @@ export default function Login() {
       } else {
         toast({
           title: "Login failed",
-          description: data.message || "Invalid credentials",
+          description: "Invalid credentials",
           variant: "destructive"
         });
       }
