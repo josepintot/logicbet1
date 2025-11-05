@@ -33,6 +33,7 @@ export default function Login() {
       });
 
       const data = await response.json();
+      console.log('Login response:', { status: response.status, data });
 
       if (response.ok && data.token) {
         localStorage.setItem('authToken', data.token);
@@ -47,6 +48,7 @@ export default function Login() {
         });
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "Could not connect to server",
