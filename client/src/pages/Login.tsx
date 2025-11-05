@@ -41,8 +41,8 @@ export default function Login() {
           description: data.error,
           variant: "destructive"
         });
-      } else if (data.token) {
-        localStorage.setItem('authToken', data.token);
+      } else if (data.message?.accessToken) {
+        localStorage.setItem('authToken', data.message.accessToken);
         setTimeout(() => {
           window.location.href = '/';
         }, 100);
