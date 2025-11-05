@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,13 +34,11 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Store the auth token
-        if (data.token) {
-          localStorage.setItem('authToken', data.token);
-        }
-        // Redirect to dashboard
-        window.location.href = '/';
+      if (response.ok && data.token) {
+        localStorage.setItem('authToken', data.token);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 100);
       } else {
         toast({
           title: "Login failed",
