@@ -8,6 +8,13 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
+import PlatformsPage from "@/pages/Platforms";
+import PlatformEditPage from "@/pages/PlatformEdit";
+import Players from "./pages/Players";
+import BuscarJugador from "./pages/players/BuscarJugador";
+import MasApostadores from "./pages/players/MasApostadores";
+import MasGanadores from "./pages/players/MasGanadores";
+import JugadoresActivos from "./pages/players/JugadoresActivos";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -15,6 +22,13 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/plataformas/editar" component={PlatformEditPage} />
+      <Route path="/plataformas" component={PlatformsPage} />
+      <Route path="/players" component={Players} />
+      <Route path="/players/buscar-jugador" component={BuscarJugador} />
+      <Route path="/players/mas-apostadores" component={MasApostadores} />
+      <Route path="/players/mas-ganadores" component={MasGanadores} />
+      <Route path="/players/jugadores-activos" component={JugadoresActivos} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
