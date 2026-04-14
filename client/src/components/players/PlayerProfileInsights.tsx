@@ -20,12 +20,23 @@ type ProfilePlayer = {
 
 interface PlayerProfileInsightsProps {
   player?: ProfilePlayer | null;
+  riskProfile?: any;
   platformName?: string;
 }
 
-interface MockChartItem {
+interface RiskChartItem {
   name: string;
   value: number;
+}
+
+interface RecentBetItem {
+  mercado: string;
+  deporte: string;
+  region: string;
+  competencia: string;
+  status: string;
+  apuestas: string;
+  ratio: string;
 }
 
 const CHART_COLORS = ['#fb6a6a', '#52c7c2', '#45b3cf', '#9cd3bb', '#f3c252'];
@@ -105,6 +116,133 @@ const RECENT_BETS = [
   },
 ];
 
+function readString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const text = String(value).trim();
+  return text === 'undefined' || text === 'null' ? '' : text;
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+
+  const normalized = value.replace(/[^\d,.-]/g, '').trim();
+  if (!normalized) return null;
+
+  const hasComma = normalized.includes(',');
+  const hasDot = normalized.includes('.');
+
+  let parsedValue = normalized;
+  if (hasComma && hasDot) {
+    parsedValue = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
+      ? normalized.replace(/\./g, '').replace(',', '.')
+      : normalized.replace(/,/g, '');
+  } else if (hasComma) {
+    parsedValue = normalized.replace(',', '.');
+  }
+
+  const parsed = Number(parsedValue);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function findFirstValue(source: any, paths: string[]): unknown {
+  for (const path of paths) {
+    const value = path.split('.').reduce<any>((acc, key) => acc?.[key], source);
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function pickPayload(payload: any): any {
+  return payload?.message ?? payload?.data ?? payload ?? {};
+}
+
+function toChartItems(source: any, preferredKeys: string[] = []): RiskChartItem[] {
+  const payload = pickPayload(source);
+  const directValue = preferredKeys.length ? findFirstValue(payload, preferredKeys) : payload;
+
+  if (Array.isArray(directValue)) {
+    return directValue
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+
+        const name = readString(
+          findFirstValue(item, ['name', 'label', 'title', 'key', 'sport', 'region', 'competition', 'league', 'status', 'type'])
+        );
+        const value = readNumber(
+          findFirstValue(item, ['value', 'count', 'total', 'amount', 'bets', 'apuestas', 'qty', 'quantity'])
+        );
+
+        if (!name || value === null) return null;
+        return { name, value };
+      })
+      .filter((item): item is RiskChartItem => Boolean(item));
+  }
+
+  if (directValue && typeof directValue === 'object') {
+    return Object.entries(directValue)
+      .map(([key, value]) => {
+        const numericValue = readNumber(value);
+        if (numericValue === null) return null;
+        return {
+          name: key,
+          value: numericValue,
+        };
+      })
+      .filter((item): item is RiskChartItem => Boolean(item));
+  }
+
+  return [];
+}
+
+function toRecentBets(source: any): RecentBetItem[] {
+  const payload = pickPayload(source);
+  const rows = findFirstValue(payload, [
+    'recentBets',
+    'lastBets',
+    'latestBets',
+    'ultimasApuestas',
+    'detalleUltimasApuestas',
+    'bets',
+    'betDetails',
+  ]);
+
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+
+      return {
+        mercado: readString(findFirstValue(row, ['market', 'mercado', 'betType', 'wagerType'])) || '-',
+        deporte: readString(findFirstValue(row, ['sport', 'deporte'])) || '-',
+        region: readString(findFirstValue(row, ['region', 'country', 'pais'])) || '-',
+        competencia: readString(findFirstValue(row, ['competition', 'competencia', 'league', 'tournament'])) || '-',
+        status: readString(findFirstValue(row, ['status', 'liveStatus', 'betStatus', 'type'])) || '-',
+        apuestas: readString(findFirstValue(row, ['bets', 'apuestas', 'count', 'quantity'])) || '-',
+        ratio: readString(findFirstValue(row, ['ratio', 'ratioGlobal', 'profitRatio', 'odds', 'payoutRatio'])) || '-',
+      };
+    })
+    .filter((row): row is RecentBetItem => Boolean(row));
+}
+
+function formatMetricValue(value: unknown, fallback = '-'): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  }
+
+  const numericValue = readNumber(value);
+  if (numericValue !== null) {
+    return numericValue.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  }
+
+  const text = readString(value);
+  return text || fallback;
+}
+
 function SummaryMetricCard({ title, value }: { title: string; value: string }) {
   return (
     <Card className="border-0 bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-sm">
@@ -123,7 +261,7 @@ function DonutChartCard({
 }: {
   title: string;
   centerLabel: string;
-  data: MockChartItem[];
+  data: RiskChartItem[];
 }) {
   return (
     <Card className="shadow-sm">
@@ -159,10 +297,22 @@ function DonutChartCard({
   );
 }
 
-export function PlayerProfileInsights({ player, platformName = '-' }: PlayerProfileInsightsProps) {
+export function PlayerProfileInsights({ player, riskProfile, platformName = '-' }: PlayerProfileInsightsProps) {
   const displayName = player?.name ?? player?.playerName ?? '-';
   const displayEmail = player?.email ?? '-';
   const displayPlayerId = player?.playerId ?? player?.id ?? '-';
+  const payload = pickPayload(riskProfile);
+  const totalBets = formatMetricValue(
+    findFirstValue(payload, ['totalBets', 'total_bets', 'totalBet', 'total_apuestas']),
+  );
+  const globalRatio = formatMetricValue(
+    findFirstValue(payload, ['globalRatio', 'ratioGlobal', 'global_ratio', 'ratio_global']),
+  );
+  const topSports = toChartItems(payload, ['topSports', 'top_sports', 'sports']);
+  const topRegions = toChartItems(payload, ['topRegions', 'top_regions', 'regions']);
+  const topCompetitions = toChartItems(payload, ['topCompetitions', 'top_competitions', 'competitions', 'leagues']);
+  const preMatchVsLive = toChartItems(payload, ['preMatchVsLive', 'pre_match_vs_live', 'statusDistribution', 'betStatus']);
+  const recentBets = toRecentBets(payload);
 
   return (
     <div className="space-y-6">
@@ -188,12 +338,12 @@ export function PlayerProfileInsights({ player, platformName = '-' }: PlayerProf
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <SummaryMetricCard title="Total De Apuestas" value="2276" />
-        <SummaryMetricCard title="Ratio Global" value="0.92" />
+        <SummaryMetricCard title="Total De Apuestas" value={totalBets} />
+        <SummaryMetricCard title="Ratio Global" value={globalRatio} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <DonutChartCard title="Top 5 Deportes" centerLabel="Sport" data={TOP_SPORTS_DATA} />
+        <DonutChartCard title="Top 5 Deportes" centerLabel="Sport" data={topSports} />
         <DonutChartCard title="Top 5 Regiones" centerLabel="Región" data={TOP_REGIONS_DATA} />
       </div>
 

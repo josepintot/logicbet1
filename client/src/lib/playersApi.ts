@@ -77,6 +77,11 @@ export interface PlayerProfileParams {
   platformId: string;
 }
 
+export interface PlayerRiskProfileParams {
+  playerId: string;
+  platformId: string;
+}
+
 export interface TopPlayersParams {
   userId: string;
   startDate: string;
@@ -141,10 +146,12 @@ function extractPlayersFromPayload(payload: any): any[] {
 }
 
 function getProfileParamsFromRow(row: any, fallbackUserId = ""): PlayerProfileParams {
+  const playerId = readString(
+    row?.playerId ?? row?.player_id ?? row?.id ?? row?._id ?? row?.player?.playerId ?? row?.player?.id
+  );
+
   return {
-    playerId: readString(
-      row?.playerId ?? row?.player_id ?? row?.id ?? row?._id ?? row?.player?.playerId ?? row?.player?.id
-    ),
+    playerId,
     playerToken: readString(
       row?.playerToken ??
       row?.player_token ??
@@ -154,7 +161,8 @@ function getProfileParamsFromRow(row: any, fallbackUserId = ""): PlayerProfilePa
       row?.player?.token ??
       row?.authToken ??
       row?.sessionToken ??
-      row?.jwtToken
+      row?.jwtToken ??
+      playerId
     ),
     userId: readString(
       row?.userId ??
@@ -457,7 +465,6 @@ export async function resolvePlayerProfileParams(
 
 export async function getPlayerProfile(params: PlayerProfileParams): Promise<any> {
   const token = await getAuthToken();
-
   const queryParams = new URLSearchParams({
     playerId: params.playerId,
     playerToken: params.playerToken,
@@ -465,9 +472,7 @@ export async function getPlayerProfile(params: PlayerProfileParams): Promise<any
     platformId: params.platformId,
   });
 
-  const url = `${EXTERNAL_API_BASE_URL}/v1/player/get_player_profile?${queryParams}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(`${EXTERNAL_API_BASE_URL}/v1/player/get_player_profile?${queryParams.toString()}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -475,12 +480,69 @@ export async function getPlayerProfile(params: PlayerProfileParams): Promise<any
     },
   });
 
+  const contentType = response.headers.get("content-type") || "";
+  const bodyText = await response.text();
+
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Error fetching player profile");
+    let message = bodyText || "Error fetching player profile";
+
+    if (contentType.includes("application/json")) {
+      try {
+        const parsed = JSON.parse(bodyText);
+        message = parsed?.message || parsed?.error || message;
+      } catch {
+        // Keep the raw body text if JSON parsing fails.
+      }
+    }
+
+    throw new Error(message);
   }
 
-  return response.json();
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Unexpected content type from player profile endpoint: ${contentType || "unknown"}`);
+  }
+
+  return JSON.parse(bodyText);
+}
+
+export async function getPlayerRiskProfile(params: PlayerRiskProfileParams): Promise<any> {
+  const token = await getAuthToken();
+  const queryParams = new URLSearchParams({
+    playerId: params.playerId,
+    platformId: params.platformId,
+  });
+
+  const response = await fetch(`${EXTERNAL_API_BASE_URL}/v1/risk/get_player_risk_profile?${queryParams.toString()}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  const bodyText = await response.text();
+
+  if (!response.ok) {
+    let message = bodyText || "Error fetching player risk profile";
+
+    if (contentType.includes("application/json")) {
+      try {
+        const parsed = JSON.parse(bodyText);
+        message = parsed?.message || parsed?.error || message;
+      } catch {
+        // Keep the raw body text if JSON parsing fails.
+      }
+    }
+
+    throw new Error(message);
+  }
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Unexpected content type from player risk profile endpoint: ${contentType || "unknown"}`);
+  }
+
+  return JSON.parse(bodyText);
 }
 
 export async function getTopPlayersByBets(params: TopPlayersParams): Promise<any> {

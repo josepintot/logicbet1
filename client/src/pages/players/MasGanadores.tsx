@@ -9,6 +9,7 @@ import {
   getMissingPlayerProfileFields,
   getPlayerPlatformName,
   getPlayerProfile,
+  getPlayerRiskProfile,
   getTopPlayerCurrency,
   getTopPlayerMetricAmount,
   getTopPlayersByWins,
@@ -16,7 +17,7 @@ import {
   resolvePlayerProfileParams,
 } from '@/lib/playersApi';
 import { fetchUserPlatforms } from '@/lib/platformsApi';
-import { PlayerProfileInsights } from '@/components/players/PlayerProfileInsights';
+import { PlayerRiskProfileInsights } from '@/components/players/PlayerRiskProfileInsights';
 
 const MasGanadores = () => {
   const [currency, setCurrency] = useState('ARS');
@@ -25,6 +26,7 @@ const MasGanadores = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<any | null>(null);
+  const [riskProfileData, setRiskProfileData] = useState<any | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -145,17 +147,26 @@ const MasGanadores = () => {
           `Faltan datos del jugador para cargar el perfil: ${formatMissingPlayerProfileFields(missingFields)}.`,
         );
         setProfileData(null);
+        setRiskProfileData(null);
         return;
       }
 
       setIsProfileLoading(true);
       setProfileError(null);
-      const data = await getPlayerProfile(params);
+      const [data, riskData] = await Promise.all([
+        getPlayerProfile(params),
+        getPlayerRiskProfile({
+          playerId: params.playerId,
+          platformId: params.platformId,
+        }),
+      ]);
       setProfileData(data);
+      setRiskProfileData(riskData);
     } catch (err) {
       console.error('❌ Error loading player profile:', err);
-      setProfileError('No se pudo cargar el perfil.');
+      setProfileError(err instanceof Error ? err.message : 'No se pudo cargar el perfil.');
       setProfileData(null);
+      setRiskProfileData(null);
     } finally {
       setIsProfileLoading(false);
     }
@@ -300,6 +311,7 @@ const MasGanadores = () => {
               setIsProfileModalOpen(open);
               if (!open) {
                 setProfileData(null);
+                setRiskProfileData(null);
                 setProfileError(null);
               }
             }}
@@ -314,8 +326,9 @@ const MasGanadores = () => {
               ) : profileError ? (
                 <p className="text-sm text-red-600">{profileError}</p>
               ) : profileData ? (
-                <PlayerProfileInsights
+                <PlayerRiskProfileInsights
                   player={profileData?.message ?? profileData}
+                  riskProfile={riskProfileData?.message ?? riskProfileData}
                   platformName={displayProfilePlatformName}
                 />
               ) : (

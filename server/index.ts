@@ -70,8 +70,8 @@ app.use((req, res, next) => {
 
   const port = parseInt(process.env.PORT || '5000', 10);
   
-  // Use localhost for local development
-  const host = 'localhost';
+  // Bind explicitly to IPv4 to avoid Windows/IPv6 localhost issues.
+  const host = '127.0.0.1';
   
   server.listen(port, host, () => {
     log(`serving on port ${port}`);

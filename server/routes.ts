@@ -6,6 +6,27 @@ import { getAuthToken, getRequestHeaders } from "./externalApiAuth";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware (no-op - using external API)
   await setupAuth(app);
+  
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true });
+  });
+
+  app.post("/api/login", (req, res) => {
+    const { userName, password } = req.body ?? {};
+
+    if (!userName || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+
+    return res.json({
+      message: {
+        accessToken: "local-dev-token",
+        user: {
+          userName,
+        },
+      },
+    });
+  });
 
   // Proxy endpoint for financial report
   app.get("/api/financial-report", async (req, res) => {
@@ -178,6 +199,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const externalApiUrl = `${baseUrl}/v1/player/get_player_profile?${params.toString()}`;
 
       console.log("=== Proxying Player Profile Request ===");
+      console.log("URL:", externalApiUrl);
+
+      const token = await getAuthToken();
+      const headers = getRequestHeaders(token);
+
+      const response = await fetch(externalApiUrl, {
+        method: "GET",
+        headers,
+      });
+
+      console.log("Response status:", response.status);
+
+      const contentType = response.headers.get("content-type");
+      let data;
+
+      if (contentType?.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const textBody = await response.text();
+        console.error("Non-JSON response received:", textBody.substring(0, 500));
+        return res.status(response.status).json({
+          result: "error",
+          message: `API returned ${contentType} instead of JSON. This usually means authentication failed or the endpoint is not available.`,
+          debug: textBody.substring(0, 200),
+        });
+      }
+
+      if (!response.ok) {
+        console.error("External API error:", response.status, data);
+        return res.status(response.status).json(data);
+      }
+
+      return res.json(data);
+    } catch (error) {
+      console.error("Proxy error:", error);
+      return res.status(500).json({
+        result: "error",
+        message: error instanceof Error ? error.message : "Internal server error",
+      });
+    }
+  });
+
+  // Proxy endpoint for player risk profile
+  app.get("/api/players/risk-profile", async (req, res) => {
+    try {
+      const { playerId, platformId } = req.query;
+
+      if (!playerId || !platformId) {
+        return res.status(400).json({
+          result: "error",
+          message: "Missing required parameters: playerId, platformId",
+        });
+      }
+
+      const params = new URLSearchParams({
+        playerId: playerId as string,
+        platformId: platformId as string,
+      });
+
+      const baseUrl = process.env.EXTERNAL_API_BASE_URL || "https://sports-admin-server.jbets.online";
+      const externalApiUrl = `${baseUrl}/v1/risk/get_player_risk_profile?${params.toString()}`;
+
+      console.log("=== Proxying Player Risk Profile Request ===");
       console.log("URL:", externalApiUrl);
 
       const token = await getAuthToken();
@@ -552,8 +636,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // No backend routes needed - using external API only
-  
   const httpServer = createServer(app);
   return httpServer;
 }

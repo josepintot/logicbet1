@@ -7,8 +7,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@assets/generated_images/Logic_Bet_minimal_logo_14ce3d7c.png";
 
-const API_URL = "https://sports-admin-server.jbets.online";
-
 export default function Login() {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +19,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/v1/user/login`, {
+      const response = await fetch("/api/login", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,20 +30,18 @@ export default function Login() {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       console.log('Login response:', { status: response.status, data });
 
-      if (data.error) {
+      if (!response.ok) {
         toast({
           title: "Login failed",
-          description: data.error,
+          description: data?.error ?? "Invalid credentials",
           variant: "destructive"
         });
       } else if (data.message?.accessToken) {
         localStorage.setItem('authToken', data.message.accessToken);
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 100);
+        setLocation("/");
       } else {
         toast({
           title: "Login failed",
