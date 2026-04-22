@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, LogOut, Home, Monitor, Users, DollarSign, ChevronDown, X } from 'lucide-react';
+import { Menu, LogOut, Home, Monitor, Users, DollarSign, BarChart2, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoImage from "@assets/generated_images/Logic_Bet_minimal_logo_14ce3d7c.png";
 
@@ -25,7 +25,16 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ onLogout }) => {
         { label: "Jugadores Activos", key: "jugadores-activos", href: "/players/jugadores-activos" },
       ]
     },
-    { icon: DollarSign, label: "Bets", key: "bets" },
+    { icon: DollarSign, label: "Apuestas", key: "bets", href: "/apuestas" },
+    {
+      icon: BarChart2,
+      label: "Reportes",
+      key: "reportes",
+      submenu: [
+        { label: "Reporte General", key: "reporte-general", href: "/reportes/general" },
+        { label: "Reportes por Jugador", key: "reportes-por-jugador", href: "/reportes/por-jugador" },
+      ]
+    },
   ];
 
   const handleLogout = () => {
@@ -110,6 +119,8 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ onLogout }) => {
                             window.location.href = "/plataformas";
                           } else if (item.key === "home") {
                             window.location.href = "/";
+                          } else if ((item as any).href) {
+                            window.location.href = (item as any).href;
                           }
                         }
                       }}

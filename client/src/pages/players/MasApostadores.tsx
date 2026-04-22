@@ -319,9 +319,9 @@ const MasApostadores = () => {
               }
             }}
           >
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
-              <DialogHeader>
-                <DialogTitle>Perfil</DialogTitle>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl bg-white">
+              <DialogHeader className="pb-4 border-b border-[#2664EC]/20">
+                <DialogTitle className="text-xl font-bold text-[#0B132B]">Perfil del Jugador</DialogTitle>
               </DialogHeader>
 
               {isProfileLoading ? (

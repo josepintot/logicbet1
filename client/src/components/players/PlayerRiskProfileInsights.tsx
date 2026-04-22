@@ -39,7 +39,7 @@ interface PlayerRiskProfileInsightsProps {
   platformName?: string;
 }
 
-const CHART_COLORS = ['#fb6a6a', '#52c7c2', '#45b3cf', '#9cd3bb', '#f3c252'];
+const CHART_COLORS = ['#2664EC', '#00B4D8', '#FF7F11', '#0B132B', '#7EB8F7'];
 const SHOW_DEBUG_PAYLOAD = false;
 
 function readString(value: unknown): string {
@@ -368,10 +368,10 @@ function formatRatioValue(value: unknown, fallback = '-'): string {
 
 function SummaryMetricCard({ title, value }: { title: string; value: string }) {
   return (
-    <Card className="border-0 bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-sm">
+    <Card className="border-0 bg-gradient-to-br from-[#0B132B] to-[#2664EC] text-white shadow-md">
       <CardContent className="p-6 text-center">
-        <p className="text-base font-semibold opacity-95">{title}</p>
-        <p className="mt-4 text-4xl font-bold tracking-tight">{value}</p>
+        <p className="text-xs font-semibold uppercase tracking-widest opacity-70">{title}</p>
+        <p className="mt-3 text-4xl font-bold tracking-tight">{value}</p>
       </CardContent>
     </Card>
   );
@@ -387,9 +387,9 @@ function DonutChartCard({
   data: RiskChartItem[];
 }) {
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-center text-2xl font-semibold text-slate-800">{title}</CardTitle>
+    <Card className="shadow-sm border border-slate-100">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-center text-base font-semibold text-[#0B132B]">{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {data.length > 0 ? (
@@ -397,22 +397,22 @@ function DonutChartCard({
             <div className="mx-auto h-40 w-full max-w-[240px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={data} dataKey="value" nameKey="name" innerRadius={34} outerRadius={62} paddingAngle={1}>
+                  <Pie data={data} dataKey="value" nameKey="name" innerRadius={34} outerRadius={62} paddingAngle={2}>
                     {data.map((entry, index) => (
                       <Cell key={`${entry.name}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" className="fill-slate-600 text-[10px] font-bold">
+                  <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" className="fill-[#0B132B] text-[10px] font-bold">
                     {centerLabel.toUpperCase()}
                   </text>
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               {data.map((item, index) => (
-                <div key={item.name} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                <div key={item.name} className="inline-flex items-center gap-2 rounded-full bg-[#2664EC]/10 px-3 py-1 text-sm text-[#0B132B]">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
                   <span>{item.name} ({item.value})</span>
                 </div>
               ))}
@@ -509,23 +509,24 @@ export function PlayerRiskProfileInsights({ player, riskProfile, platformName = 
 
   return (
     <div className="space-y-6">
-      <Card className="border border-primary/10 bg-slate-50/80 shadow-sm">
+      <Card className="border-0 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-[#2664EC] via-[#00B4D8] to-[#FF7F11]" />
         <CardContent className="grid gap-4 p-5 text-sm md:grid-cols-4">
           <div>
-            <p className="text-muted-foreground">Nombre</p>
-            <p className="font-semibold text-foreground">{displayName}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#2664EC]">Nombre</p>
+            <p className="font-semibold text-[#0B132B] mt-0.5">{displayName}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Email</p>
-            <p className="font-semibold text-foreground break-words">{displayEmail}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#2664EC]">Email</p>
+            <p className="font-semibold text-[#0B132B] mt-0.5 break-words">{displayEmail}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Plataforma</p>
-            <p className="font-semibold text-foreground">{platformName}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#2664EC]">Plataforma</p>
+            <p className="font-semibold text-[#0B132B] mt-0.5">{platformName}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">ID Jugador</p>
-            <p className="font-semibold text-foreground break-all">{displayPlayerId}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#2664EC]">ID Jugador</p>
+            <p className="font-semibold text-[#0B132B] mt-0.5 break-all">{displayPlayerId}</p>
           </div>
         </CardContent>
       </Card>
@@ -545,9 +546,9 @@ export function PlayerRiskProfileInsights({ player, riskProfile, platformName = 
         <DonutChartCard title="Pre-match vs Live" centerLabel="Status" data={preMatchVsLive} />
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl font-semibold text-slate-800">Detalle Ultimas Apuestas</CardTitle>
+      <Card className="shadow-sm border border-slate-100">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold text-[#0B132B]">Detalle Últimas Apuestas</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -566,19 +567,19 @@ export function PlayerRiskProfileInsights({ player, riskProfile, platformName = 
               <TableBody>
                 {recentBets.length > 0 ? (
                   recentBets.map((bet, index) => (
-                    <TableRow key={`${bet.mercado}-${bet.competencia}-${index}`} className="bg-emerald-50/70 hover:bg-emerald-50">
+                    <TableRow key={`${bet.mercado}-${bet.competencia}-${index}`} className="hover:bg-[#2664EC]/5 transition-colors">
                       <TableCell>{bet.mercado}</TableCell>
                       <TableCell>{bet.deporte}</TableCell>
                       <TableCell>{bet.region}</TableCell>
                       <TableCell className="max-w-[220px] whitespace-normal">{bet.competencia}</TableCell>
                       <TableCell>
-                        <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-600">
+                        <span className="rounded-full bg-[#FF7F11]/10 px-3 py-1 text-xs font-semibold text-[#FF7F11]">
                           {bet.status}
                         </span>
                       </TableCell>
                       <TableCell>{bet.apuestas}</TableCell>
                       <TableCell>
-                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">
+                        <span className="rounded-full bg-[#00B4D8]/10 px-3 py-1 text-sm font-bold text-[#00B4D8]">
                           {bet.ratio}
                         </span>
                       </TableCell>

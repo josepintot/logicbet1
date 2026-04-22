@@ -15,6 +15,9 @@ import BuscarJugador from "./pages/players/BuscarJugador";
 import MasApostadores from "./pages/players/MasApostadores";
 import MasGanadores from "./pages/players/MasGanadores";
 import JugadoresActivos from "./pages/players/JugadoresActivos";
+import ApuestasPage from "./pages/Apuestas";
+import ReporteGeneral from "./pages/reportes/ReporteGeneral";
+import ReportesPorJugador from "./pages/reportes/ReportesPorJugador";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -29,6 +32,9 @@ function Router() {
       <Route path="/players/mas-apostadores" component={MasApostadores} />
       <Route path="/players/mas-ganadores" component={MasGanadores} />
       <Route path="/players/jugadores-activos" component={JugadoresActivos} />
+      <Route path="/apuestas" component={ApuestasPage} />
+      <Route path="/reportes/general" component={ReporteGeneral} />
+      <Route path="/reportes/por-jugador" component={ReportesPorJugador} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
