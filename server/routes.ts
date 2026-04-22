@@ -548,6 +548,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Proxy endpoint for tickets search
+  app.post("/api/tickets/search", async (req, res) => {
+    try {
+      const requestBody = req.body ?? {};
+      const userId = String(requestBody.userId ?? "").trim();
+
+      if (!userId) {
+        return res.status(400).json({
+          result: "error",
+          message: "Missing required parameter: userId",
+        });
+      }
+
+      const params = new URLSearchParams();
+      const filterEntries = Object.entries(requestBody).filter(([, value]) => {
+        const text = String(value ?? "").trim();
+        return text.length > 0;
+      });
+
+      for (const [key, value] of filterEntries) {
+        params.set(key, String(value).trim());
+      }
+
+      const baseUrl = process.env.EXTERNAL_API_BASE_URL || "https://sports-admin-server.jbets.online";
+      const externalApiUrl = `${baseUrl}/v1/ticket/get_tickets?${params.toString()}`;
+
+      console.log("=== Proxying Tickets Search ===");
+      console.log("URL:", externalApiUrl);
+      console.log("Payload:", requestBody);
+
+      const token = await getAuthToken();
+      const headers = getRequestHeaders(token);
+
+      const requestCandidates = [
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+        {
+          method: "GET",
+          body: undefined,
+          headers,
+        },
+      ] as const;
+
+      let lastStatus = 500;
+      let lastErrorPayload: unknown = null;
+
+      for (const candidate of requestCandidates) {
+        const response = await fetch(externalApiUrl, {
+          method: candidate.method,
+          headers: candidate.headers,
+          ...(candidate.body ? { body: candidate.body } : {}),
+        });
+
+        const contentType = response.headers.get("content-type") ?? "";
+        const data = contentType.includes("application/json")
+          ? await response.json()
+          : await response.text();
+
+        if (response.ok && typeof data !== "string") {
+          return res.json(data);
+        }
+
+        lastStatus = response.status;
+        lastErrorPayload = data;
+        console.warn(`Tickets ${candidate.method} attempt failed`, response.status, data);
+      }
+
+      return res.status(lastStatus).json(
+        typeof lastErrorPayload === "string"
+          ? {
+              result: "error",
+              message: lastErrorPayload,
+            }
+          : lastErrorPayload ?? {
+              result: "error",
+              message: "Unable to fetch tickets",
+            },
+      );
+    } catch (error) {
+      console.error("Proxy error:", error);
+      return res.status(500).json({
+        result: "error",
+        message: error instanceof Error ? error.message : "Internal server error",
+      });
+    }
+  });
+
   // Proxy endpoint for update platform
   app.post("/api/platforms/update", async (req, res) => {
     try {
