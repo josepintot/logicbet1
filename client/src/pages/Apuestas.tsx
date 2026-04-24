@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, X, Monitor, Activity, User, Hash, Gamepad2, Target, Calendar } from 'lucide-react';
+import { Search, X, Monitor, Activity, User, Hash, Gamepad2, Target, Calendar, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SidebarMenu } from '@/components/SidebarMenu';
 import { fetchUserPlatforms } from '@/lib/platformsApi';
 import { fetchTickets, type TicketRow } from '@/lib/betsApi';
@@ -21,13 +24,45 @@ type PlatformOption = {
   name: string;
 };
 
+function formatDateRangeLabel(start: Date | undefined, end: Date | undefined): string {
+  if (!start || !end) return 'Seleccionar rango';
+
+  return `${start.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}`;
+}
+
+function getStartOfDayIso(date: Date): string {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next.toISOString();
+}
+
+function getEndOfDayIso(date: Date): string {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next.toISOString();
+}
+
 const ApuestasPage: React.FC = () => {
+  const initialDateRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - 29);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    return { from: start, to: end };
+  }, []);
+
   const [plataforma, setPlataforma] = useState('');
   const [estado, setEstado] = useState('Todos los Estados');
   const [idJugador, setIdJugador] = useState('');
   const [idTicket, setIdTicket] = useState('');
   const [idJuego, setIdJuego] = useState('');
   const [idEvento, setIdEvento] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(initialDateRange);
+  const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
   const [platforms, setPlatforms] = useState<PlatformOption[]>([]);
   const [platformsLoading, setPlatformsLoading] = useState(true);
   const [platformsError, setPlatformsError] = useState<string | null>(null);
@@ -35,6 +70,10 @@ const ApuestasPage: React.FC = () => {
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
+  const [ticketToCancel, setTicketToCancel] = useState<string | null>(null);
+  const [expandedTrackingTicketId, setExpandedTrackingTicketId] = useState<string | null>(null);
+  const [expandedTrackingDetails, setExpandedTrackingDetails] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -74,13 +113,25 @@ const ApuestasPage: React.FC = () => {
 
   const ticketFilters = useMemo(() => ({
     userId: USER_ID,
+    startDate: getStartOfDayIso(dateRange.from),
+    endDate: getEndOfDayIso(dateRange.to),
     ...(plataforma ? { platformId: plataforma } : {}),
     ...(estado !== 'Todos los Estados' ? { status: estado } : {}),
     ...(idJugador.trim() ? { playerId: idJugador.trim() } : {}),
     ...(idTicket.trim() ? { ticketId: idTicket.trim() } : {}),
     ...(idJuego.trim() ? { gameId: idJuego.trim() } : {}),
     ...(idEvento.trim() ? { eventId: idEvento.trim() } : {}),
-  }), [plataforma, estado, idJugador, idTicket, idJuego, idEvento]);
+  }), [dateRange, plataforma, estado, idJugador, idTicket, idJuego, idEvento]);
+
+  const dateRangeLabel = useMemo(
+    () => formatDateRangeLabel(dateRange.from, dateRange.to),
+    [dateRange],
+  );
+
+  const selectedDays = useMemo(() => {
+    const timeDiff = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
+    return Math.floor(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+  }, [dateRange]);
 
   const handleClearFilters = () => {
     setPlataforma('');
@@ -89,6 +140,7 @@ const ApuestasPage: React.FC = () => {
     setIdTicket('');
     setIdJuego('');
     setIdEvento('');
+    setDateRange(initialDateRange);
     setTickets([]);
     setTicketsError(null);
     setHasSearched(false);
@@ -247,15 +299,54 @@ const ApuestasPage: React.FC = () => {
                   <label className="text-sm font-medium text-[#0B132B] flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-[#2664EC]" /> Rango de Fechas
                   </label>
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-background cursor-pointer hover:border-[#2664EC] transition-colors">
-                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-[#2664EC] to-[#00B4D8] flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium text-[#0B132B]">Seleccionar rango</p>
-                      <p className="text-xs text-muted-foreground">Desde - Hasta</p>
-                    </div>
-                  </div>
+                  <Popover open={isDatePopoverOpen} onOpenChange={setIsDatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-background text-left hover:border-[#2664EC] transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-md bg-gradient-to-br from-[#2664EC] to-[#00B4D8] flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="text-sm flex-1 min-w-0">
+                          <p className="font-medium text-[#0B132B]">{dateRangeLabel}</p>
+                          <p className="text-xs text-muted-foreground">{selectedDays} Días seleccionados</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">▼</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-4 space-y-4">
+                        <div className="border-b pb-3">
+                          <p className="text-sm font-semibold text-[#0B132B]">Seleccionar rango de fechas</p>
+                          <p className="text-xs text-muted-foreground mt-1">{dateRangeLabel}</p>
+                        </div>
+
+                        <DatePickerCalendar
+                          mode="range"
+                          selected={{ from: dateRange.from, to: dateRange.to }}
+                          onSelect={(range) => {
+                            if (range?.from) {
+                              setDateRange({
+                                from: range.from,
+                                to: range.to ?? range.from,
+                              });
+                            }
+                          }}
+                          numberOfMonths={2}
+                        />
+
+                        <div className="flex justify-end gap-2 border-t pt-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsDatePopoverOpen(false)}
+                          >
+                            Cerrar
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
@@ -300,24 +391,102 @@ const ApuestasPage: React.FC = () => {
                   </thead>
                   <tbody>
                     {tickets.map((row, idx) => (
-                      <tr key={`${row.idTicket}-${idx}`} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.idTicket}</td>
-                        <td className="px-4 py-3">{row.plataforma}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{row.fecha}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{row.securityCode}</td>
-                        <td className="px-4 py-3">{row.tipo}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.idJugador}</td>
-                        <td className="px-4 py-3">
-                          <span className="rounded-full bg-[#2664EC]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2664EC]">
-                            {row.estado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-[#0B132B]">{row.apuesta}</td>
-                        <td className="px-4 py-3 font-semibold text-[#00B4D8]">{row.gananciaPotencial}</td>
-                        <td className="px-4 py-3">{row.tracking}</td>
-                        <td className="px-4 py-3">{row.acciones}</td>
-                        <td className="px-4 py-3">{row.detalles}</td>
-                      </tr>
+                      <React.Fragment key={`${row.idTicket}-${idx}`}>
+                        <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.idTicket}</td>
+                          <td className="px-4 py-3">{row.plataforma}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{row.fecha}</td>
+                          <td className="px-4 py-3 font-mono text-xs">{row.securityCode}</td>
+                          <td className="px-4 py-3">{row.tipo}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.idJugador}</td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-full bg-[#2664EC]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2664EC]">
+                              {row.estado}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-[#0B132B]">{row.apuesta}</td>
+                          <td className="px-4 py-3 font-semibold text-[#00B4D8]">{row.gananciaPotencial}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedTrackingTicketId((prev) => (prev === row.idTicket ? null : row.idTicket));
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-sm font-bold text-[#475569] transition-colors hover:bg-muted"
+                              aria-label={`Ver tracking del ticket ${row.idTicket}`}
+                              title="Tracking"
+                            >
+                              i
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => setTicketToCancel(row.idTicket)}
+                              className="h-8 rounded-md bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600"
+                            >
+                              Anular
+                            </Button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTicket(row)}
+                              className="inline-flex items-center justify-center rounded-md border border-border p-2 text-[#2664EC] transition-colors hover:bg-[#2664EC]/10"
+                              aria-label={`Ver detalles del ticket ${row.idTicket}`}
+                              title="Ver detalles"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+
+                        {expandedTrackingTicketId === row.idTicket && (
+                          <tr className="border-b border-border bg-[#F8FAFC]">
+                            <td colSpan={12} className="p-4">
+                              <div className="rounded-xl border border-[#DBEAFE] bg-[#EFF6FF] p-4">
+                                <div className="space-y-3">
+                                  {row.trackingEvents.length > 0 ? row.trackingEvents.map((event, eventIndex) => {
+                                    const eventKey = `${row.idTicket}-${eventIndex}`;
+                                    const isEventDetailOpen = Boolean(expandedTrackingDetails[eventKey]);
+
+                                    return (
+                                      <div key={eventKey} className="rounded-lg border border-border bg-white">
+                                        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 md:flex-row md:items-center md:justify-between">
+                                          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+                                            <span className="font-semibold text-slate-800">{event.fecha}</span>
+                                            <span>{event.evento}</span>
+                                          </div>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => {
+                                              setExpandedTrackingDetails((prev) => ({
+                                                ...prev,
+                                                [eventKey]: !prev[eventKey],
+                                              }));
+                                            }}
+                                            className="h-8 w-fit bg-[#3B82F6] text-white hover:bg-[#2563EB]"
+                                          >
+                                            {isEventDetailOpen ? 'Ocultar detalles ▲' : 'Ver detalles ▼'}
+                                          </Button>
+                                        </div>
+
+                                        {isEventDetailOpen && (
+                                          <pre className="overflow-x-auto px-4 py-3 text-xs text-slate-700">{event.detalle}</pre>
+                                        )}
+                                      </div>
+                                    );
+                                  }) : (
+                                    <p className="text-sm text-muted-foreground">No hay eventos de tracking para este ticket.</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
 
                     {!ticketsLoading && !ticketsError && !tickets.length && (
@@ -340,6 +509,86 @@ const ApuestasPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Dialog
+            open={Boolean(ticketToCancel)}
+            onOpenChange={(open) => {
+              if (!open) setTicketToCancel(null);
+            }}
+          >
+            <DialogContent className="max-w-[95vw] md:max-w-4xl border-0 bg-[#F3F4F6] p-8">
+              <div className="space-y-4 text-center">
+                <h2 className="text-3xl font-extrabold text-red-600">
+                  Anular Ticket: {ticketToCancel}
+                </h2>
+                <div>
+                  <Button
+                    type="button"
+                    onClick={() => setTicketToCancel(null)}
+                    className="bg-red-200 text-red-600 hover:bg-red-300"
+                  >
+                    Anular
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={Boolean(selectedTicket)}
+            onOpenChange={(open) => {
+              if (!open) setSelectedTicket(null);
+            }}
+          >
+            <DialogContent className="max-w-[95vw] md:max-w-6xl p-0 overflow-hidden">
+              <DialogHeader className="px-6 pt-6 pb-2 border-b">
+                <DialogTitle className="text-[#0B132B]">Detalle de apuesta</DialogTitle>
+              </DialogHeader>
+
+              <div className="p-4 md:p-6 overflow-x-auto">
+                <table className="w-full min-w-[1200px] text-sm border border-border rounded-md overflow-hidden">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">ID del Juego</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Evento</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">ID del Evento</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Fecha Apuesta</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Estado del Juego</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Region</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Liga</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Deporte</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Juego</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Fecha del Juego</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Seleccion</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Cuota</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-border">
+                      <td className="px-4 py-3 text-muted-foreground">{selectedTicket?.detalleApuesta.idJuego || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.evento || '-'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{selectedTicket?.detalleApuesta.idEvento || '-'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{selectedTicket?.detalleApuesta.fechaApuesta || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.estadoJuego || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.region || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.liga || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.deporte || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.juego || '-'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{selectedTicket?.detalleApuesta.fechaJuego || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.seleccion || '-'}</td>
+                      <td className="px-4 py-3">{selectedTicket?.detalleApuesta.cuota || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-0.5 text-xs font-semibold text-[#B45309]">
+                          {selectedTicket?.detalleApuesta.estado || '-'}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>

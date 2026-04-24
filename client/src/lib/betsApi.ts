@@ -123,6 +123,8 @@ async function getAuthToken(): Promise<string> {
 
 export interface TicketFilters {
   userId: string;
+  startDate?: string;
+  endDate?: string;
   platformId?: string;
   status?: string;
   playerId?: string;
@@ -142,8 +144,28 @@ export interface TicketRow {
   apuesta: string;
   gananciaPotencial: string;
   tracking: string;
+  trackingEvents: Array<{
+    fecha: string;
+    evento: string;
+    detalle: string;
+  }>;
   acciones: string;
   detalles: string;
+  detalleApuesta: {
+    idJuego: string;
+    evento: string;
+    idEvento: string;
+    fechaApuesta: string;
+    estadoJuego: string;
+    region: string;
+    liga: string;
+    deporte: string;
+    juego: string;
+    fechaJuego: string;
+    seleccion: string;
+    cuota: string;
+    estado: string;
+  };
 }
 
 export interface TicketRequestDebug {
@@ -199,9 +221,57 @@ function normalizeTicketRow(
     ? readString(row.tracking[row.tracking.length - 1]?.action) || `${row.tracking.length} eventos`
     : "-";
 
+  const trackingEvents = Array.isArray(row?.tracking)
+    ? row.tracking.map((entry: any) => {
+      const detailValue = firstValue(entry, ["response", "detail", "payload", "data", "body", "message"]);
+      const detailText = typeof detailValue === "string"
+        ? detailValue
+        : detailValue !== undefined && detailValue !== null
+          ? JSON.stringify(detailValue, null, 2)
+          : "-";
+
+      return {
+        fecha: readString(firstValue(entry, ["date", "createdAt", "timestamp", "time", "at"])) || "-",
+        evento: readString(firstValue(entry, ["action", "event", "title", "name"])) || "Evento",
+        detalle: detailText,
+      };
+    })
+    : [];
+
+  const ticketStatus = statusMap[readString(firstValue(row, ["status", "estado", "ticketStatus", "betStatus"]))]
+    || readString(firstValue(row, ["status", "estado", "ticketStatus", "betStatus"]))
+    || "-";
+
   const detailSummary = readString(firstValue(firstBet?.extraData, ["itemDetails"]))
     || readString(firstValue(firstBet, ["selection", "marketName"]))
     || "-";
+
+  const gameNameFromTeams = [
+    readString(firstValue(firstBet, ["team1", "homeTeam", "home", "localTeam"])),
+    readString(firstValue(firstBet, ["team2", "awayTeam", "away", "visitorTeam"])),
+  ]
+    .filter(Boolean)
+    .join(" vs ");
+
+  const gameName = gameNameFromTeams
+    || readString(firstValue(firstBet, ["gameName", "matchName", "match", "name"]))
+    || "-";
+
+  const betDetail = {
+    idJuego: readString(firstValue(firstBet, ["gameId", "idGame", "game_id", "matchId"])) || "-",
+    evento: readString(firstValue(firstBet, ["eventName", "marketName", "itemDetails", "event"])) || detailSummary,
+    idEvento: readString(firstValue(firstBet, ["eventId", "idEvent", "event_id"])) || "-",
+    fechaApuesta: formatDate(firstValue(row, ["date", "createdAt", "created_at", "ticketDate", "updatedAt"])),
+    estadoJuego: readString(firstValue(firstBet, ["gameStatus", "matchStatus", "status", "score"])) || "-",
+    region: readString(firstValue(firstBet, ["region", "country", "location", "zone"])) || "-",
+    liga: readString(firstValue(firstBet, ["league", "leagueName", "competition", "tournament"])) || "-",
+    deporte: readString(firstValue(firstBet, ["sport", "sportName", "gameType", "discipline"])) || "-",
+    juego: gameName,
+    fechaJuego: formatDate(firstValue(firstBet, ["gameDate", "matchDate", "eventDate", "startTime", "date"])),
+    seleccion: readString(firstValue(firstBet, ["selection", "pick", "marketSelection"])) || "-",
+    cuota: readString(firstValue(firstBet, ["odds", "odd", "price", "cuota"])) || "-",
+    estado: ticketStatus,
+  };
 
   return {
     idTicket: readString(firstValue(row, ["ticketId", "ticket_id", "idTicket", "_id", "id"])) || "-",
@@ -210,12 +280,14 @@ function normalizeTicketRow(
     securityCode: readString(firstValue(row, ["securityCode", "security_code", "code", "pin"])) || "-",
     tipo: readString(firstValue(row?.betData, ["typeName"])) || "-",
     idJugador: readString(firstValue(row, ["playerId", "player_id", "userId", "user_id"])) || "-",
-    estado: statusMap[readString(firstValue(row, ["status", "estado", "ticketStatus", "betStatus"]))] || readString(firstValue(row, ["status", "estado", "ticketStatus", "betStatus"])) || "-",
+    estado: ticketStatus,
     apuesta: `${amountPrefix}${formatCurrency(betAmount)}`,
     gananciaPotencial: `${amountPrefix}${formatCurrency(potentialWin)}`,
     tracking: trackingSummary,
+    trackingEvents,
     acciones: readString(firstValue(row, ["actions", "acciones"])) || "-",
     detalles: detailSummary,
+    detalleApuesta: betDetail,
   };
 }
 
@@ -253,6 +325,14 @@ export function buildTicketsRequest(filters: TicketFilters): TicketRequestDebug 
   const body: Record<string, string> = {
     userId: filters.userId,
   };
+
+  if (filters.startDate) {
+    body.startDate = filters.startDate;
+  }
+
+  if (filters.endDate) {
+    body.endDate = filters.endDate;
+  }
 
   if (filters.platformId) {
     body.platformId = filters.platformId;
