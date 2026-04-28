@@ -16,6 +16,7 @@ import MasApostadores from "./pages/players/MasApostadores";
 import MasGanadores from "./pages/players/MasGanadores";
 import JugadoresActivos from "./pages/players/JugadoresActivos";
 import ApuestasPage from "./pages/Apuestas";
+import EncuentrosPage from "./pages/Encuentros";
 import ReporteGeneral from "./pages/reportes/ReporteGeneral";
 import ReportesPorJugador from "./pages/reportes/ReportesPorJugador";
 
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/players/mas-ganadores" component={MasGanadores} />
       <Route path="/players/jugadores-activos" component={JugadoresActivos} />
       <Route path="/apuestas" component={ApuestasPage} />
+      <Route path="/encuentros" component={EncuentrosPage} />
       <Route path="/reportes/general" component={ReporteGeneral} />
       <Route path="/reportes/por-jugador" component={ReportesPorJugador} />
       {isLoading || !isAuthenticated ? (
