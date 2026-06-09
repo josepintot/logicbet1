@@ -726,6 +726,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Proxy endpoint for per-platform report
+  app.get("/api/platform-report", async (req, res) => {
+    try {
+      const { userId, platformId, startDate, endDate } = req.query;
+      if (!userId || !platformId || !startDate || !endDate) {
+        return res.status(400).json({ result: "error", message: "Missing required parameters" });
+      }
+      const params = new URLSearchParams({
+        userId: userId as string,
+        platformId: platformId as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      const baseUrl = process.env.EXTERNAL_API_BASE_URL || "https://sports-admin-server.jbets.online";
+      const response = await fetch(`${baseUrl}/v1/report/get_platform_report?${params}`, {
+        method: "GET",
+        headers: getRequestHeaders(await getAuthToken()),
+      });
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        const text = await response.text();
+        return res.status(response.status).json({ result: "error", message: text.substring(0, 200) });
+      }
+      const data = await response.json();
+      if (!response.ok) return res.status(response.status).json(data);
+      return res.json(data);
+    } catch (error) {
+      return res.status(500).json({ result: "error", message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
+  // Proxy endpoint for user list
+  app.get("/api/users", async (_req, res) => {
+    try {
+      const baseUrl = process.env.EXTERNAL_API_BASE_URL || "https://sports-admin-server.jbets.online";
+      const externalApiUrl = `${baseUrl}/v1/user/get_users`;
+
+      const token = await getAuthToken();
+      const headers = getRequestHeaders(token);
+
+      const response = await fetch(externalApiUrl, { method: "GET", headers });
+      const contentType = response.headers.get("content-type");
+
+      if (!contentType?.includes("application/json")) {
+        const text = await response.text();
+        return res.status(response.status).json({ result: "error", message: text.substring(0, 200) });
+      }
+
+      const data = await response.json();
+      if (!response.ok) return res.status(response.status).json(data);
+      return res.json(data);
+    } catch (error) {
+      return res.status(500).json({ result: "error", message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
